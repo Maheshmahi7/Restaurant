@@ -79,25 +79,3 @@ END #
 DELIMITER ;
 
 
-
-
-DELIMITER #
-CREATE TRIGGER TR_ON_SEAT_INSERT
-AFTER INSERT ON seat
-FOR EACH ROW
-BEGIN
-INSERT INTO seat_status(seat_id,STATUS)VALUES(new.id,'available');
-END #
-DELIMITER ;
-
-
-
-
-DELIMITER #
-CREATE TRIGGER TR_ON_MENU_INSERT
-AFTER INSERT ON  menu
-FOR EACH ROW
-BEGIN
-INSERT INTO stock_remaining(menu_id,schedule_id,quantity) VALUES(new.id,new.food_schedule,(SELECT quantity FROM food_schedule WHERE id=new.food_schedule));
-END #
-DELIMITER ;
