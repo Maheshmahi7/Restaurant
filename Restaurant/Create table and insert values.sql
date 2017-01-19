@@ -9,7 +9,6 @@ UNIQUE KEY `UNIQUE` (`schedule`)
 )
 
 
-
 CREATE TABLE menu (                                                                                                                                                                                                                                                                                                               
 id INT NOT NULL,
 NAME VARCHAR(50) NOT NULL,
@@ -28,7 +27,6 @@ PRIMARY KEY (`id`)
 )
 
 
-
 CREATE TABLE seat_status (
 id INT NOT NULL AUTO_INCREMENT,
 seat_id INT NOT NULL,
@@ -39,16 +37,11 @@ CONSTRAINT seat_no FOREIGN KEY (`seat_id`) REFERENCES seat(`id`)
 
 
 
-
-
 CREATE TABLE order_limit (
 id INT NOT NULL AUTO_INCREMENT,
 limits INT DEFAULT NULL,
 PRIMARY KEY (`id`)
 )
-
-
-
 
 
 CREATE TABLE orders (
@@ -59,11 +52,9 @@ CONSTRAINT ORDER_SEAT_NO FOREIGN KEY (`seat_id`) REFERENCES seat(`id`)
 )
 
 
-
 CREATE TABLE transaction_hotel (
 id INT NOT NULL AUTO_INCREMENT,
 order_id INT DEFAULT NULL,
-seat_id INT NOT NULL,
 menu_id INT NOT NULL,
 quantity INT DEFAULT NULL,
 ordered_time TIME DEFAULT NULL,
@@ -71,7 +62,6 @@ STATUS VARCHAR(200) DEFAULT NULL,
 PRIMARY KEY (`id`),
 CONSTRAINT item FOREIGN KEY (`menu_id`) REFERENCES menu(`id`),
 CONSTRAINT order_id FOREIGN KEY (`order_id`) REFERENCES orders(`id`),
-CONSTRAINT seat FOREIGN KEY (`seat_id`) REFERENCES seat(`id`)
 )
 
 
@@ -79,13 +69,11 @@ CONSTRAINT seat FOREIGN KEY (`seat_id`) REFERENCES seat(`id`)
 CREATE TABLE bill (
 id INT NOT NULL AUTO_INCREMENT,
 order_id INT(11) DEFAULT NULL,
-seat_id INT DEFAULT NULL,
 no_of_items_order INT DEFAULT '0',
 total_cost INT DEFAULT '0',
 STATUS VARCHAR(50) DEFAULT NULL,
 PRIMARY KEY (`id`),
 CONSTRAINT BILL_ORDER_ID FOREIGN KEY (`order_id`) REFERENCES orders(`id`),
-CONSTRAINT BILL_SEAT_ID FOREIGN KEY (`seat_id`) REFERENCES seat(`id`)
 )
 
 
@@ -101,6 +89,7 @@ CONSTRAINT TYPE FOREIGN KEY (`schedule_id`) REFERENCES food_schedule(`id`)
 )
 
 
+
 DELIMITER #
 CREATE TRIGGER TR_ON_SEAT_INSERT
 AFTER INSERT ON seat
@@ -109,7 +98,6 @@ BEGIN
 INSERT INTO seat_status(seat_id,STATUS)VALUES(new.id,'available');
 END #
 DELIMITER ;
-
 
 
 

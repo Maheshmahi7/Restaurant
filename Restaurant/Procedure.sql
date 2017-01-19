@@ -32,9 +32,7 @@ DECLARE i INT;/*looping variable*/
 END #
 DELIMITER ;
 
-
 CALL PR_TAKE_ORDER(1,'Coffee,Tea,Idly,null,null','1,1,2,0,0');
-
 
 
 DELIMITER #
@@ -54,9 +52,9 @@ CASE condition_statement
 		UPDATE stock_remaining
 		SET quantity=quantity-i_quantity
 		WHERE menu_id=(SELECT FN_GET_MENU_ID(i_item));
-		CALL PR_UPDATE_BILL((SELECT id FROM orders WHERE seat_id=i_seat_no ORDER BY id DESC LIMIT 1),i_seat_no,(i_quantity*(SELECT price FROM menu WHERE id=(SELECT FN_GET_MENU_ID(i_item)))),1);
+		CALL PR_UPDATE_BILL((SELECT id FROM orders WHERE seat_id=i_seat_no ORDER BY id DESC LIMIT 1),(i_quantity*(SELECT price FROM menu WHERE id=(SELECT FN_GET_MENU_ID(i_item)))),1);
 		
-		INSERT INTO transaction_hotel(order_id,seat_id,menu_id,quantity,ordered_time,STATUS) VALUES ((SELECT id FROM orders WHERE seat_id=i_seat_no ORDER BY id DESC LIMIT 1),i_seat_no,(SELECT FN_GET_MENU_ID(i_item)),i_quantity,CURRENT_TIME(),'Delivered');
+		INSERT INTO transaction_hotel(order_id,menu_id,quantity,ordered_time,STATUS) VALUES ((SELECT id FROM orders WHERE seat_id=i_seat_no ORDER BY id DESC LIMIT 1),(SELECT FN_GET_MENU_ID(i_item)),i_quantity,CURRENT_TIME(),'Delivered');
 		COMMIT;
 	WHEN 2 THEN
 		SELECT CONCAT(i_item,' is currently not available. Please order something else') AS message;
@@ -67,8 +65,6 @@ CASE condition_statement
 END CASE;
 END #
 DELIMITER ;
-
-
 
 
 
@@ -118,18 +114,15 @@ END IF;
 END #
 DELIMITER ;
 
-
 CALL PR_CANCEL_ORDER(10,'South Indian Meals')
 
 
-
-
 DELIMITER #
-CREATE PROCEDURE PR_UPDATE_BILL(IN i_order_id INT,IN i_seat_no INT,IN i_cost INT,IN i_total_count INT)
+CREATE PROCEDURE PR_UPDATE_BILL(IN i_order_id INT,IN i_cost INT,IN i_total_count INT)
 BEGIN
 IF NOT EXISTS(SELECT id FROM bill WHERE order_id=i_order_id)
 THEN
-INSERT INTO bill(order_id,seat_id,no_of_items_order,total_cost,STATUS) VALUES (i_order_id,i_seat_no,i_total_count,i_cost,'Pending');
+INSERT INTO bill(order_id,no_of_items_order,total_cost,STATUS) VALUES (i_order_id,i_total_count,i_cost,'Pending');
 ELSE
 UPDATE bill
 SET no_of_items_order=no_of_items_order+i_total_count,
@@ -138,8 +131,6 @@ WHERE order_id=i_order_id;
 END IF;
 END #
 DELIMITER ;
-
-
 
 
 
@@ -153,7 +144,7 @@ SET STATUS='Paid'
 WHERE order_id=i_order_id;
 UPDATE seat_status
 SET STATUS='available'
-WHERE seat_id=(SELECT seat_id FROM bill WHERE order_id=i_order_id);
+WHERE seat_id=(SELECT seat_id FROM orders WHERE id=i_order_id);
 SELECT 'Bill Paid' AS Message;
 ELSE
 SELECT 'Bill already paid' AS Message;
@@ -164,16 +155,10 @@ DELIMITER ;
 CALL PR_PAY_BILL(10)
 
 
-
-
 CREATE VIEW VR_STOCK_REMAINING AS SELECT menu.`id`'S.no',menu.`name`'Items',(SELECT food_schedule.`schedule` FROM food_schedule WHERE food_schedule.`id`=menu.`food_schedule`)'Schedule',stock_remaining.`quantity` 
 FROM menu JOIN stock_remaining ON menu.`id`=stock_remaining.`menu_id`;
 
-
 SELECT * FROM VR_STOCK_REMAINING
-
-
-
 
 
 SET GLOBAL event_scheduler=ON;
