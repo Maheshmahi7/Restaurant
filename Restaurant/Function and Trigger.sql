@@ -2,37 +2,46 @@ DELIMITER #
 CREATE FUNCTION FN_GET_MENU_ID(item VARCHAR(50)) RETURNS INT
 BEGIN
 DECLARE X INT;
-SET X=(SELECT menu.`id` FROM menu JOIN stock_remaining ON menu.`id`=stock_remaining.`menu_id` JOIN food_schedule ON food_schedule.`id`=menu.`food_schedule` WHERE menu.name=item AND CURRENT_TIME() BETWEEN from_time AND to_time);
+SET X=(SELECT menu.`id` FROM menu JOIN stock_remaining ON menu.`id`=stock_remaining.`menu_id` JOIN food_schedule ON food_schedule.`id`=stock_remaining.`schedule_id` WHERE menu.name=item AND CURRENT_TIME() BETWEEN from_time AND to_time);
 RETURN X;
 END; #
 DELIMITER ;
 
+DELIMITER #
+CREATE FUNCTION FN_GET_SESSION_ID(item VARCHAR(50)) RETURNS INT
+BEGIN
+RETURN (SELECT stock_remaining.`schedule_id` FROM stock_remaining JOIN food_schedule ON food_schedule.`id`=stock_remaining.`schedule_id` WHERE stock_remaining.`menu_id`=(SELECT FN_GET_MENU_ID(item)) AND CURRENT_TIME() BETWEEN from_time AND to_time);
+END #
+DELIMITER ;
+
 
 DELIMITER #
-CREATE FUNCTION FN_CONDITIONS(item VARCHAR(50),quantity INT) RETURNS INT
+CREATE FUNCTION FN_CHECK_ITEM_AVAILABILITY(item VARCHAR(50),quantity INT) RETURNS VARCHAR(50)
 BEGIN
 
 DECLARE item_remaining INT;/*for validating current stock*/
+DECLARE session_id INT;
 
+SET session_id=(SELECT FN_GET_SESSION_ID(item));
 /*to check session id is available or not*/
-IF EXISTS(SELECT menu.`food_schedule` FROM menu JOIN food_schedule ON food_schedule.`id`=menu.`food_schedule` WHERE menu.name=item AND CURRENT_TIME() BETWEEN from_time AND to_time)
+IF (session_id<>0)
 THEN
 	/*based on retrived session id and food name the food id will be retrived*/
 	IF EXISTS (SELECT FN_GET_MENU_ID(item))
 	THEN
-		SET item_remaining=(SELECT stock_remaining.`quantity` FROM stock_remaining WHERE menu_id=(SELECT FN_GET_MENU_ID(item)));
+		SET item_remaining=(SELECT stock_remaining.`quantity` FROM stock_remaining WHERE menu_id=(SELECT FN_GET_MENU_ID(item)) AND stock_remaining.`schedule_id`=session_id);
 		/*checking the ordered quantity is less then remaining quantity*/
 		IF (item_remaining>=quantity)
 		THEN
-			RETURN 1;
+			RETURN 'item available';
 		ELSE
-			RETURN 2;
+			RETURN 'item not available';
 		END IF;
 	ELSE 
-		RETURN 3;
+		RETURN 'not served';
 	END IF;
 ELSE
-	RETURN 4;
+	RETURN 'out of service';
 END IF;				
 END; #
 DELIMITER ;
@@ -69,7 +78,7 @@ DELIMITER ;
 DELIMITER #
 CREATE FUNCTION FN_CHECK_SEAT_AVAILABILITY(seat_no INT) RETURNS BOOLEAN
 BEGIN
-RETURN EXISTS (SELECT seat_id FROM seat_status WHERE seat_id=seat_no AND STATUS='available');
+RETURN EXISTS (SELECT seat_id FROM seat_status WHERE seat_id=seat_no AND STATUS='AVAILABLE');
 END #
 DELIMITER ;
 
@@ -79,16 +88,7 @@ CREATE TRIGGER TR_ON_SEAT_INSERT
 AFTER INSERT ON seat
 FOR EACH ROW
 BEGIN
-INSERT INTO seat_status(seat_id,STATUS)VALUES(new.id,'available');
+INSERT INTO seat_status(seat_id,STATUS)VALUES(new.id,'AVAILABLE');
 END #
 DELIMITER ;
 
-
-DELIMITER #
-CREATE TRIGGER TR_ON_MENU_INSERT
-AFTER INSERT ON  menu
-FOR EACH ROW
-BEGIN
-INSERT INTO stock_remaining(menu_id,schedule_id,quantity) VALUES(new.id,new.food_schedule,(SELECT quantity FROM food_schedule WHERE id=new.food_schedule));
-END #
-DELIMITER ;
