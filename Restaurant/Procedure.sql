@@ -1,10 +1,13 @@
+DROP PROCEDURE IF EXISTS PR_TAKE_ORDER;
 DELIMITER #
-CREATE PROCEDURE PR_TAKE_ORDER(IN i_seat_no INT,IN i_items MEDIUMTEXT,IN i_quantitys MEDIUMTEXT,OUT message_status VARCHAR(200))
+CREATE PROCEDURE PR_TAKE_ORDER(IN i_seat_no INT,IN i_items MEDIUMTEXT,IN i_quantitys MEDIUMTEXT,OUT message_status VARCHAR(1000))
 BEGIN
 DECLARE	item VARCHAR(50);/*for getting particular item from item list*/
 DECLARE quantity INT;/*for getting quantity from quantity list*/
 DECLARE i INT;/*looping variable*/
 DECLARE order_no INT;
+SET message_status='1';
+
 
 	/*checking the given seat is available or not*/
 	IF FN_CHECK_SEAT_AVAILABILITY(i_seat_no)
@@ -16,7 +19,7 @@ DECLARE order_no INT;
 		WHERE seat_id=i_seat_no;
 		SET order_no=(SELECT id FROM orders WHERE seat_id=i_seat_no ORDER BY id DESC LIMIT 1);
 		/*loop for ordering each item in the item list*/
-		WHILE i<=(SELECT FN_CHECK_ORDER_LIST(i_items,i_quantitys))
+while_loop:		WHILE i<=(SELECT FN_CHECK_ORDER_LIST(i_items,i_quantitys))
 		DO
 			/*getting single item from item list*/
 			SET item=(SELECT SUBSTRING_INDEX(SUBSTRING_INDEX(i_items,',',i), ',',-1));
@@ -24,8 +27,12 @@ DECLARE order_no INT;
 			SET quantity=(SELECT SUBSTRING_INDEX(SUBSTRING_INDEX(i_quantitys,',', i), ',',-1));
 			/*checking if there is null in the item if not then procedure will be called*/
 			CALL PR_ORDER_ITEM(i_seat_no,item,quantity,@message_order);
-			SELECT @message_order INTO message_status;
+			SELECT CONCAT(message_status,' ',@message_order) INTO message_status;
 			SET i=i+1;
+			IF(message_status='1 Sorry we are out of service at the moment')
+			THEN 
+			LEAVE while_loop;
+			END IF;
 		END WHILE;
 		CALL PR_PAY_BILL(order_no,@message_pay);
 	ELSE
@@ -34,9 +41,10 @@ DECLARE order_no INT;
 END #
 DELIMITER ;
 
-CALL PR_TAKE_ORDER(1,'Coffee,Tea,Idly,null,null','1,1,2,0,0',@message);
+CALL PR_TAKE_ORDER(1,'Coffee,Tea,Idly,null,null','1,1,2,0,0',@message_status);
 
 
+DROP PROCEDURE IF EXISTS PR_ORDER_ITEM;
 DELIMITER #
 CREATE PROCEDURE PR_ORDER_ITEM(IN i_seat_no INT,IN i_item VARCHAR(50),IN i_quantity INT,OUT message_order VARCHAR(200))
 BEGIN
@@ -78,6 +86,7 @@ DELIMITER ;
 
 
 
+DROP PROCEDURE IF EXISTS PR_CANCEL_ORDER;
 DELIMITER #
 CREATE PROCEDURE PR_CANCEL_ORDER(IN i_seat_no INT,IN i_item VARCHAR(50),OUT message_cancel VARCHAR(200))
 BEGIN
@@ -126,9 +135,10 @@ END IF;
 END #
 DELIMITER ;
 
-CALL PR_CANCEL_ORDER(10,'South Indian Meals')
+CALL PR_CANCEL_ORDER(10,'South Indian Meals',message_cancel)
 
 
+DROP PROCEDURE IF EXISTS PR_UPDATE_BILL;
 DELIMITER #
 CREATE PROCEDURE PR_UPDATE_BILL(IN i_order_id INT,IN i_cost INT)
 BEGIN
@@ -145,6 +155,7 @@ DELIMITER ;
 
 
 
+DROP PROCEDURE IF EXISTS PR_PAY_BILL;
 DELIMITER # 
 CREATE PROCEDURE PR_PAY_BILL(IN i_order_id INT,OUT message_pay VARCHAR(200))
 BEGIN
@@ -166,6 +177,7 @@ DELIMITER ;
 CALL PR_PAY_BILL(10)
 
 
+DROP VIEW IF EXISTS VR_STOCK_REMAINING;
 CREATE VIEW VR_STOCK_REMAINING AS SELECT menu.`id`'S.no',menu.`name`'Items',(SELECT food_schedule.`schedule` FROM food_schedule WHERE id=stock_remaining.`schedule_id`)'Schedule',stock_remaining.`quantity` 
 FROM menu JOIN stock_remaining ON menu.`id`=stock_remaining.`menu_id`;
 
@@ -174,6 +186,7 @@ SELECT * FROM VR_STOCK_REMAINING
 
 SET GLOBAL event_scheduler=ON;
 
+DROP EVENT IF EXISTS EV_END_DAY_UPDATE;
 DELIMITER #
 CREATE EVENT EV_END_DAY_UPDATE 
 ON SCHEDULE EVERY 1 DAY 
